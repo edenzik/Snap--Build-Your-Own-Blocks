@@ -2482,6 +2482,24 @@ IDE_Morph.prototype.cloudMenu = function () {
     menu.popup(world, pos);
 };
 
+IDE_Morph.prototype.autosaveCallback = function () {
+	console.log("hello");
+	/* If we already started saving a project, autosave it */
+	if (this.projectName) {
+		if (this.source === 'local') { // as well as 'examples'
+			this.rawAutoSaveProject(this.projectName);
+		} else { // 'cloud'
+			SnapCloud.saveProject(
+				this,
+				function () {
+					console.log("Auto saved project " + this.projectName);
+				},
+				this.cloudError()
+			);
+		}
+	}
+};
+
 IDE_Morph.prototype.settingsMenu = function () {
     var menu,
         stage = this.stage,
@@ -2502,6 +2520,7 @@ IDE_Morph.prototype.settingsMenu = function () {
             );
         }
     }
+
 
     menu = new MenuMorph(this);
     menu.addItem('Language...', 'languageMenu');
@@ -2853,6 +2872,40 @@ IDE_Morph.prototype.settingsMenu = function () {
         'uncheck to disable\nblock to text mapping features',
         'check for block\nto text mapping features',
         false
+    );
+    addPreference(
+        'Autosave',
+        function () {
+		if (stage.isAutosave) {
+			console.log("Turning on autosave");
+			stage.autosaveInterval = window.setInterval(function(){
+				console.log("hello");
+				/* If we already started saving a project, autosave it */
+				if (this.projectName) {
+					if (this.source === 'local') { // as well as 'examples'
+						this.rawAutoSaveProject(this.projectName);
+					} else { // 'cloud'
+						SnapCloud.saveProject(
+							this,
+							function () {
+								console.log("Auto saved project " + this.projectName);
+							},
+							this.cloudError()
+						);
+					}
+				}
+			}, 1000);
+		} else {
+			if (stage.autosaveInterval) {
+				console.log("Turning off autosave");
+				window.clearInterval(stage.autosaveInterval);
+			}
+		}
+		stage.isAutosave = !stage.isAutosave; 
+	},
+        this.stage.isAutosave,
+        'uncheck to disable\nauto save after every operation.',
+        true
     );
     addPreference(
         'Inheritance support',
@@ -3525,6 +3578,7 @@ IDE_Morph.prototype.newProject = function () {
     SpriteMorph.prototype.useFlatLineEnds = false;
     Process.prototype.enableLiveCoding = false;
     this.setProjectName('');
+    this.autosaveCallback();
     this.projectNotes = '';
     this.createStage();
     this.add(this.stage);
@@ -3579,6 +3633,29 @@ IDE_Morph.prototype.rawSaveProject = function (name) {
                 = str = this.serializer.serialize(this.stage);
             this.setURL('#open:' + str);
             this.showMessage('Saved!', 1);
+        }
+    }
+};
+
+// Serialize a project and save to the browser in the background
+IDE_Morph.prototype.rawAutoSaveProject = function (name) {
+    var str;
+    if (name) {
+        this.setProjectName(name);
+        if (Process.prototype.isCatchingErrors) {
+            try {
+                localStorage['-snap-project-' + name]
+                    = str = this.serializer.serialize(this.stage);
+                this.setURL('#open:' + str);
+		console.log("Auto saved project " + name);
+            } catch (err) {
+                this.showMessage('Save failed: ' + err);
+            }
+        } else {
+            localStorage['-snap-project-' + name]
+                = str = this.serializer.serialize(this.stage);
+            this.setURL('#open:' + str);
+	    console.log("Auto saved project " + name);
         }
     }
 };
